@@ -9,8 +9,15 @@ import moviepy.editor as mpy
 
 ##Helper Functions
 def ImportPicturesFromFolder(folder):
+    # create image array
     filelist=os.listdir(folder)
     imglist = np.array([np.array(mpimg.imread(folder+fname)) for fname in filelist])
+    return imglist
+
+def ExportPicturesFromList(imglist):
+    # save image array
+    for i in range(imglist.shape[0]):
+        mpimg.imsave('output_images/image_'+str(i)+'.jpg',imglist[i])
     return imglist
 
 def CamCalLearn(imglist, nx=9 , ny=6, show=False):
@@ -36,6 +43,7 @@ def CamCalLearn(imglist, nx=9 , ny=6, show=False):
                 
     dstlist = np.zeros_like(imglist)
     for i in range(imglist.shape[0]):
+        # camera calibration
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (imglist[i].shape[1], imglist[i].shape[0]) ,None,None)
         dstlist[i] = cv2.undistort(imglist[i], mtx, dist, None, mtx)
         if show == True:
@@ -45,9 +53,11 @@ def CamCalLearn(imglist, nx=9 , ny=6, show=False):
     return dstlist, imgpoints, objpoints
 
 def UnDistImgList(imglist, imgpoints, objpoints, show=False):
+    # Undistort image by using previously learned camera calibration
     dstlist = np.zeros_like(imglist)
     for i in range(imglist.shape[0]):
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (imglist[i].shape[1], imglist[i].shape[0]) ,None,None)
+        # Undistort
         dst=cv2.undistort(imglist[i], mtx, dist, None, mtx)
         dstlist[i]=dst
         if show == True:
@@ -57,9 +67,11 @@ def UnDistImgList(imglist, imgpoints, objpoints, show=False):
     return dstlist
 
 def PersTrans(imglist, src, dst, show=False):
+    # create transformation matrix
     M = cv2.getPerspectiveTransform(src, dst)
     warpedlist = np.zeros_like(imglist)
     for i in range(imglist.shape[0]):
+        # perform perspective warp
         warped = cv2.warpPerspective(imglist[i], M, (imglist[i].shape[1], imglist[i].shape[0]), flags=cv2.INTER_LINEAR)
         warpedlist[i]=warped
         if show == True:
@@ -69,6 +81,7 @@ def PersTrans(imglist, src, dst, show=False):
     return warpedlist
 
 def ScaleBin(img, mag_thresh=(0, 1),mode = 0):
+    # prepare a binary/scaled image
     scaled = (img/np.max(img))        
     sbinar = np.zeros_like(scaled)
     sbinar[(scaled >= mag_thresh[0]) & (scaled <= mag_thresh[1])] = 1
@@ -81,6 +94,7 @@ def ScaleBin(img, mag_thresh=(0, 1),mode = 0):
 def EdgeDetection(imglist, show=False):
     EdgeDetectionList = np.zeros((imglist.shape[0],imglist.shape[1],imglist.shape[2]))
     for i in range(imglist.shape[0]):
+        # transform images to different color spaces or use sobel
         gray = cv2.cvtColor(imglist[i], cv2.COLOR_RGB2GRAY)
         #kernel = np.ones((20))*255
         #gray = cv2.filter2D(gray, cv2.CV_64F, kernel)
@@ -92,7 +106,7 @@ def EdgeDetection(imglist, show=False):
         #sobmag = np.sqrt(sobelx**2+sobely**2)
         #absgraddir = np.arctan2(np.absolute(sobely), np.absolute(sobelx))
         red=imglist[i,:,:,0]
-        blue=imglist[i,:,:,2]
+        #blue=imglist[i,:,:,2]
         hls = cv2.cvtColor(imglist[i], cv2.COLOR_RGB2HLS)       
         S = hls[:,:,2]
         bgr = cv2.cvtColor(imglist[i], cv2.COLOR_RGB2BGR)       
@@ -101,6 +115,7 @@ def EdgeDetection(imglist, show=False):
         luv = cv2.cvtColor(imglist[i], cv2.COLOR_RGB2LUV)       
         V = luv[:,:,2]
         
+        # create binary / scaled images and scale the output to gain max. contrast
         BinRed=ScaleBin(red,(0.75, 1),mode = 0)
         ScaleRed=1.2
         BinGray=ScaleBin(gray,(0.65, 1),mode = 0)
@@ -115,7 +130,8 @@ def EdgeDetection(imglist, show=False):
         ScaleR=0.4
         BinV=ScaleBin(V,(0.7, 1),mode = 0)
         ScaleV=0.7
-        combined=ScaleBin(ScaleRed*BinRed+ScaleGray*BinGray+ScaleSob*BinSob+ScaleS*BinS+ScaleG*BinG+ScaleR*BinR+ScaleV*BinV,(0.45, 1),mode = 1) #0.55
+        # combine all this masks and create sclaed/binary image again
+        combined=ScaleBin(ScaleRed*BinRed+ScaleGray*BinGray+ScaleSob*BinSob+ScaleS*BinS+ScaleG*BinG+ScaleR*BinR+ScaleV*BinV,(0.52, 1),mode = 1) #Images 0.52 video 0.41
         
         EdgeDetectionList[i]=combined
         if show == True:
@@ -148,7 +164,7 @@ def SlidingWindow(imglist, show=False):
         leftx_current = leftx_base
         rightx_current = rightx_base
         # Set the width of the windows +/- margin
-        margin = 130
+        margin = 150
         # Set minimum number of pixels found to recenter window
         minpix = 2 #50
         # Create empty lists to receive left and right lane pixel indices
@@ -255,8 +271,8 @@ def FinalImageProcessing(orImgListimgLst, warpedImgListimgLst, left_fitLst, righ
         car_position = ((origimg.shape[1])/2)* xm_per_pix
         center_distance = (center - car_position)
         
-        cv2.putText(finalizedImgLst[i], 'Radius of Curvature = ' + str(np.int((left_curverad+right_curverad)/2)) + ' m', (40,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
-        cv2.putText(finalizedImgLst[i], 'Center Lane Offset = ' + str(abs(np.int(center_distance*100))) + ' cm', (40,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
+        cv2.putText(finalizedImgLst[i], 'Radius of Curvature = ' + str(np.int((left_curverad+right_curverad)/2)) + ' m', (40,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+        cv2.putText(finalizedImgLst[i], 'Center Lane Offset = ' + str(abs(np.int(center_distance*100))) + ' cm', (40,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
         if show == True:
             plt.imshow(finalizedImgLst[i])
             plt.show()
@@ -308,7 +324,8 @@ xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
 ##Curvature
 left_fitLst, right_fitLst = SlidingWindow(warpedlist, show=True)
-FinalImageProcessing(dstlist, warpedlist, left_fitLst, right_fitLst, show=True)
+finalizedImgLst = FinalImageProcessing(dstlist, warpedlist, left_fitLst, right_fitLst, show=True)
+#ExportPicturesFromList(finalizedImgLst)
 
 ##Process video file
 #prVid = mpy.VideoFileClip("project_video.mp4")
