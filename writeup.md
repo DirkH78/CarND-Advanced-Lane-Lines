@@ -20,8 +20,8 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [video1]: ./project_video_output.mp4 "Video"
-[image1]: ./camera_cal/calibration1.png "Original"
-[image2]: ./examples/undist.jpg "Undistorted"
+[image1]: ./camera_cal/calibration1.jpg "Original"
+[image2]: ./examples/undist.png "Undistorted"
 [image3]: ./test_images/test5.jpg "Original"
 [image4]: ./examples/test5_undist.png "Undistorted"
 [image5]: ./test_images/test3.jpg "Original"
